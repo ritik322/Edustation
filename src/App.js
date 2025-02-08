@@ -6,7 +6,8 @@ import Login from './components/Login';
 import Home from './components/Home';
 import ChatInterface from './components/ChatInterface';
 import DocumentViewer from './components/DocumentViewer';
-
+import Dashboard from './components/Dashboard';
+import TeacherDashboard from './components/TeacherDashboard';
 const App = () => {
   const [user, loading] = useAuthState(auth);
 
@@ -37,6 +38,8 @@ const App = () => {
           path="/document/:id" 
           element={user ? <DocumentViewer /> : <Navigate to="/" />} 
         />
+        <Route path="/dashboard" element={<Dashboard/>} />
+        <Route path="/teacher-dashboard" element={<TeacherDashboard/>} />
       </Routes>
     </BrowserRouter>
   );
