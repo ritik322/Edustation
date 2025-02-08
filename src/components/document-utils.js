@@ -1,7 +1,6 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import * as pdfjsLib from 'pdfjs-dist';
 
-const GEMINI_API_KEY = "AIzaSyABZUXHaGViOJ3G1y1aqL-lNRqd5v3V9Q4";
+const GEMINI_API_KEY = "AIzaSyA_aaC8nLYiRLrLNoCx5t-BjxMWMqI1_Dc";
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 
 const CHUNK_SIZE = 1000;
@@ -12,7 +11,7 @@ export class DocumentProcessor {
     this.vectorStore = null;
     this.chunks = [];
     this.embeddings = [];
-    this.model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-8b" });
+    this.model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
     this.autoSummarize = true;
     this.lastSummary = null;
   }

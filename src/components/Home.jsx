@@ -25,34 +25,19 @@ import * as pdfjs from "pdfjs-dist";
 import pdfjsWorker from "pdfjs-dist/build/pdf.worker.entry";
 import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
 import Tesseract from "tesseract.js";
-import CreateNewFolderIcon from "@mui/icons-material/CreateNewFolder";
 
 pdfjs.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
 const Home = () => {
-  const [customSubject, setCustomSubject] = useState("");
   const [suggestedSubject, setSuggestedSubject] = useState("");
-  const [showSubjectModal, setShowSubjectModal] = useState(false);
   const [files, setFiles] = useState({});
-  const [uploading, setUploading] = useState(false);
   const [uploadQueue, setUploadQueue] = useState([]);
   const [currentUploadIndex, setCurrentUploadIndex] = useState(0);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [estimatedTimeRemaining, setEstimatedTimeRemaining] = useState(null);
-  const [showFileMenu, setShowFileMenu] = useState(null);
-  const [isRenamingFile, setIsRenamingFile] = useState(null);
-  const [newFileName, setNewFileName] = useState("");
-  const [isMovingFile, setIsMovingFile] = useState(null);
   const [showNewFolderDialog, setShowNewFolderDialog] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
   const [customFolders, setCustomFolders] = useState([]);
-  const [subjects] = useState([
-    "Artificial Intelligence",
-    "Database Management System",
-    "Information Retrieval",
-    "Design and Analysis of Algorithms",
-    "Data Structures And Algorithms",
-  ]);
   const navigate = useNavigate();
   const [currentFolder, setCurrentFolder] = useState(null);
 
@@ -62,6 +47,30 @@ const Home = () => {
       loadCustomFolders();
     }
   }, [files]);
+
+  const [subjects, setSubjects] = useState([]);
+  const [newSubject, setNewSubject] = useState("");
+  const [showSubjectDialog, setShowSubjectDialog] = useState(false);
+
+useEffect(() => {
+  if (auth.currentUser) {
+    loadUserFiles();
+    loadCustomFolders();
+    fetchSubjects(); // Fetch subjects dynamically
+  }
+}, [files]); // Runs when 'files' change
+
+const fetchSubjects = async () => {
+  try {
+    const subjectsRef = collection(db, "subjects"); 
+    const snapshot = await getDocs(subjectsRef);
+    const subjectsList = snapshot.docs.map((doc) => doc.data().name); 
+    setSubjects(subjectsList);
+  } catch (error) {
+    console.error("Error fetching subjects:", error);
+  }
+};
+
   const getActiveFolders = () => {
     const activeFolders = new Set();
 
@@ -95,82 +104,6 @@ const Home = () => {
       setCustomFolders(folders);
     } catch (error) {
       console.error("Error loading folders:", error);
-    }
-  };
-
-  const createNewFolder = async () => {
-    if (!newFolderName.trim() || !auth.currentUser) return;
-
-    try {
-      await addDoc(collection(db, "folders"), {
-        userId: auth.currentUser.uid,
-        name: newFolderName.trim(),
-        createdAt: new Date().toISOString(),
-      });
-      setNewFolderName("");
-      setShowNewFolderDialog(false);
-      await loadCustomFolders();
-    } catch (error) {
-      console.error("Error creating folder:", error);
-      alert("Error creating folder");
-    }
-  };
-
-  const handleRenameFile = async (fileId, newName) => {
-    if (!newName.trim() || !auth.currentUser) return;
-
-    try {
-      const fileRef = doc(db, "documents", fileId);
-      await updateDoc(fileRef, {
-        name: newName.trim(),
-      });
-      setIsRenamingFile(null);
-      setNewFileName("");
-      await loadUserFiles();
-    } catch (error) {
-      console.error("Error renaming file:", error);
-      alert("Error renaming file");
-    }
-  };
-
-  const handleMoveFile = async (file, newFolder) => {
-    if (!newFolder || !auth.currentUser) return;
-
-    try {
-      // Create new storage reference
-      const newStorageRef = ref(
-        storage,
-        `documents/${auth.currentUser.uid}/${newFolder}/${file.name}`
-      );
-
-      // Get the file content from the old location
-      const oldStorageRef = ref(
-        storage,
-        `documents/${auth.currentUser.uid}/${file.subject}/${file.name}`
-      );
-      const fileUrl = await getDownloadURL(oldStorageRef);
-      const response = await fetch(fileUrl);
-      const fileBlob = await response.blob();
-
-      // Upload to new location
-      await uploadBytes(newStorageRef, fileBlob);
-      const newUrl = await getDownloadURL(newStorageRef);
-
-      // Update Firestore document
-      const fileRef = doc(db, "documents", file.id);
-      await updateDoc(fileRef, {
-        subject: newFolder,
-        url: newUrl,
-      });
-
-      // Delete from old location
-      await deleteObject(oldStorageRef);
-
-      setIsMovingFile(null);
-      await loadUserFiles();
-    } catch (error) {
-      console.error("Error moving file:", error);
-      alert("Error moving file");
     }
   };
 
@@ -221,9 +154,7 @@ const Home = () => {
       // Perform OCR on the rendered canvas (image)
       const {
         data: { text: pageText },
-      } = await Tesseract.recognize(canvas.toDataURL(), "eng", {
-        logger: (info) => console.log(info), // Optional: log progress
-      });
+      } = await Tesseract.recognize(canvas.toDataURL(), "eng");
 
       text += pageText + " ";
     }
@@ -234,7 +165,7 @@ const Home = () => {
     console.log(text);
     const prompt = `Based on the text provided below, please identify the most relevant subject from the following list: ${subjects.join(
       ", "
-    )}. If none of the subjects fit, reply with "Uncategorized". 
+    )}. 
   Text: ${text}
   Respond only with the subject name.`;
 
@@ -276,47 +207,9 @@ const Home = () => {
       } else {
         console.error("Error setting up request:", error.message);
       }
-      return "Uncategorized";
     }
   };
 
-  const FileMenu = ({ file }) => (
-    <div
-      className="absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5"
-      onClick={(e) => e.stopPropagation()} // Prevent closing when clicking menu
-    >
-      <div className="py-1" role="menu">
-        <button
-          className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-          onClick={() => {
-            setIsRenamingFile(file.id);
-            setNewFileName(file.name);
-            setShowFileMenu(null);
-          }}
-        >
-          Rename
-        </button>
-        <button
-          className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-          onClick={() => {
-            setIsMovingFile(file);
-            setShowFileMenu(null);
-          }}
-        >
-          Move to folder
-        </button>
-        <button
-          className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
-          onClick={() => {
-            handleDeleteFile(file);
-            setShowFileMenu(null);
-          }}
-        >
-          Delete
-        </button>
-      </div>
-    </div>
-  );
 
   const handleSingleFileUpload = async (file, startTime, subject) => {
     try {
@@ -389,16 +282,10 @@ const Home = () => {
       })
       .then((suggestedSubject) => {
         setSuggestedSubject(suggestedSubject);
-        setShowSubjectModal(true); // Show the modal for subject confirmation
       })
       .catch((error) => {
         console.error("Error processing file:", error);
       });
-  };
-  const handleConfirmSubject = (subject) => {
-    setCustomSubject(subject);
-    setShowSubjectModal(false);
-    uploadFiles();
   };
   const uploadFiles = async () => {
     for (const file of uploadQueue) {
@@ -406,7 +293,7 @@ const Home = () => {
       await handleSingleFileUpload(
         file,
         startTime,
-        customSubject || suggestedSubject
+        suggestedSubject
       );
       setCurrentUploadIndex((prevIndex) => prevIndex + 1);
     }
@@ -441,51 +328,78 @@ const Home = () => {
     return `${minutes} min ${remainingSeconds} sec`;
   };
 
+  const addSubject = async () => {
+    if (!newSubject.trim()) return;
+    try {
+      const docRef = await addDoc(collection(db, "subjects"), { name: newSubject });
+      setSubjects([...subjects, newSubject]); // Update UI instantly
+      setNewSubject(""); // Clear input
+      setShowSubjectDialog(false); // Close dialog
+    } catch (error) {
+      console.error("Error adding subject:", error);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-100 p-8">
       <div className="max-w-4xl mx-auto">
-        <div className="flex justify-between items-center mb-4">
-          <button
-            onClick={() => setShowNewFolderDialog(true)}
-            className="flex items-center bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
-          >
-            <CreateNewFolderIcon className="mr-2" />
-            Create New Folder
-          </button>
-        </div>
-        {/* New Folder Dialog */}
-        {showNewFolderDialog && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-            <div className="bg-white p-6 rounded-lg w-96">
-              <h3 className="text-lg font-semibold mb-4">Create New Folder</h3>
-              <input
-                type="text"
-                value={newFolderName}
-                onChange={(e) => setNewFolderName(e.target.value)}
-                className="w-full p-2 border rounded mb-4"
-                placeholder="Folder name"
-              />
-              <div className="flex justify-end gap-2">
-                <button
-                  onClick={() => {
-                    setShowNewFolderDialog(false);
-                    setNewFolderName("");
-                  }}
-                  className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={createNewFolder}
-                  className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-                >
-                  Create
-                </button>
-              </div>
+      <div className="">
+      {/* Manage Subjects Button */}
+      <div className="flex justify-between items-center mb-4">
+        <button
+          onClick={() => setShowSubjectDialog(true)}
+          className="flex items-center bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
+        >
+          📚 Manage Subjects
+        </button>
+      </div>
+
+      {/* Manage Subjects Dialog */}
+      {showSubjectDialog && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+          <div className="bg-white p-6 rounded-lg w-96">
+            <h3 className="text-lg font-semibold mb-4">Manage Subjects</h3>
+
+            {/* Subject List */}
+            <div className="max-h-40 overflow-y-auto border p-2 rounded mb-4">
+              {subjects.length > 0 ? (
+                <ul className="list-disc pl-4">
+                  {subjects.map((subject, index) => (
+                    <li key={index} className="text-gray-700">{subject}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-gray-500 text-sm">No subjects added yet.</p>
+              )}
+            </div>
+
+            {/* Add New Subject */}
+            <input
+              type="text"
+              value={newSubject}
+              onChange={(e) => setNewSubject(e.target.value)}
+              className="w-full p-2 border rounded mb-4"
+              placeholder="Enter new subject"
+            />
+
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setShowSubjectDialog(false)}
+                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded"
+              >
+                Close
+              </button>
+              <button
+                onClick={addSubject}
+                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+              >
+                Add
+              </button>
             </div>
           </div>
-        )}
-
+        </div>
+      )}
+    </div>
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-2xl font-bold">My Documents</h1>
           <div className="flex gap-4">
@@ -536,33 +450,6 @@ const Home = () => {
             />
           )}
         </div>
-        {showSubjectModal && (
-          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
-            <div className="bg-white rounded-lg shadow-lg p-6 w-11/12 max-w-md">
-              <h3 className="text-lg font-semibold mb-4">
-                Suggested Subject:{" "}
-                <span className="text-blue-500">{suggestedSubject}</span>
-              </h3>
-              <input
-                type="text"
-                value={customSubject}
-                onChange={(e) => setCustomSubject(e.target.value)}
-                placeholder="Enter custom subject (optional)"
-                className="border border-gray-300 rounded-lg p-2 mb-4 w-full"
-              />
-              <div className="flex justify-end">
-                <button
-                  className="confirm-button bg-blue-500 text-white rounded-lg px-4 py-2 hover:bg-blue-600 transition"
-                  onClick={() =>
-                    handleConfirmSubject(customSubject || suggestedSubject)
-                  }
-                >
-                  Confirm
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
 
         {uploadQueue.length === 0 && (
           <div>
