@@ -1,34 +1,74 @@
-import React from 'react';
-import { auth } from '../firebase-config';
-import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
+import React, { useState } from "react";
+import { auth, db } from "../firebase-config";
+import { signInWithEmailAndPassword } from "firebase/auth";
+import { doc, getDoc } from "firebase/firestore";
+import { useNavigate } from "react-router-dom";
 
 const Login = () => {
-  const signInWithGoogle = async () => {
-    const provider = new GoogleAuthProvider();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const navigate = useNavigate();
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(""); // Clear previous errors
+
     try {
-      await signInWithPopup(auth, provider);
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+
+      // Fetch user role from Firestore
+      const userDoc = await getDoc(doc(db, "users", user.uid));
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        navigate(userData.role === "admin" ? "/admin" : "/student");
+      } else {
+        setError("User data not found.");
+      }
     } catch (error) {
-      console.error('Error signing in:', error);
+      setError(error.message);
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100">
       <div className="bg-white p-8 rounded-lg shadow-md w-96">
-        <h1 className="text-2xl font-bold mb-6 text-center">Study Helper</h1>
-        <button
-          onClick={signInWithGoogle}
-          className="w-full bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition-colors flex items-center justify-center gap-2"
-        >
-          <svg className="w-6 h-6" viewBox="0 0 24 24">
-            {/* Google icon path */}
-            <path
-              fill="currentColor"
-              d="M12.545,12.151L12.545,12.151c0,1.054,0.855,1.909,1.909,1.909h3.536c-0.607,1.972-2.405,3.404-4.545,3.404c-2.626,0-4.754-2.128-4.754-4.754s2.128-4.754,4.754-4.754c1.271,0,2.424,0.497,3.276,1.305l1.469-1.469C15.244,6.892,13.827,6.182,12.242,6.182c-3.714,0-6.727,3.013-6.727,6.727s3.013,6.727,6.727,6.727c3.714,0,6.727-3.013,6.727-6.727v-1.909h-6.424V12.151z"
-            />
-          </svg>
-          Sign in with Google
-        </button>
+        <h2 className="text-2xl font-bold mb-6 text-center">Login</h2>
+        
+        {error && <p className="text-red-500 text-center">{error}</p>}
+        
+        <form onSubmit={handleLogin} className="space-y-4">
+          <input
+            type="email"
+            placeholder="Email"
+            className="w-full p-2 border rounded"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            disabled={loading}
+          />
+          <input
+            type="password"
+            placeholder="Password"
+            className="w-full p-2 border rounded"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            disabled={loading}
+          />
+          <button
+            type="submit"
+            className={`w-full p-2 rounded ${loading ? "bg-gray-400 cursor-not-allowed" : "bg-blue-500 hover:bg-blue-600 text-white"}`}
+            disabled={loading}
+          >
+            {loading ? "Logging in..." : "Login"}
+          </button>
+        </form>
       </div>
     </div>
   );
