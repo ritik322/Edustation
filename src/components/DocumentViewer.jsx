@@ -261,7 +261,7 @@ const handleQuizSubmit = async () => {
           <div className="flex justify-between items-center">
             <h1 className="text-2xl font-bold">{document?.name}</h1>
             <button
-              onClick={() => navigate("/home")}
+              onClick={() => navigate("/")}
               className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
             >
               Back to Home

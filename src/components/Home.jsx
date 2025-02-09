@@ -139,7 +139,7 @@ const Home = () => {
     const prompt = `Based on the text provided below, please identify the most relevant subject from the following list: ${subjectList}.
 Text: ${text}
 Respond only with the subject name mentioned in the subject list.`;
-    const apiKey = "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";
+    const apiKey = "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";
     console.log("Classifying PDF using prompt:", prompt);
     try {
       const response = await axios.post(

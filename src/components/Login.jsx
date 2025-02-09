@@ -24,7 +24,7 @@ const Login = () => {
       const userDoc = await getDoc(doc(db, "users", user.uid));
       if (userDoc.exists()) {
         const userData = userDoc.data();
-        navigate(userData.role === "admin" ? "/admin" : "/student");
+        navigate(userData.role === "admin" ? "/TeacherDashboard" : "/student");
       } else {
         setError("User data not found.");
       }
