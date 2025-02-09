@@ -29,20 +29,10 @@ const MultiLLMChat = () => {
   // LLM providers configuration
   const providers = {
     Groq: {
-      models: ["llama3-8b-8192", "mixtral-8x7b-32768", "whisper-large-v3", "gemma-7b-it"],
-      apiKey: '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',
+      models: ["llama3-8b-8192", "mixtral-8x7b-32768","deepseek-r1-distill-llama-70b"],
+      apiKey: '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',
       endpoint: "https://api.groq.com/openai/v1/chat/completions"
     },
-    NVIDIA: {
-      models: ["mistralai/mixtral-8x7b-instruct-v0.1", "meta/llama3-70b-instruct", "microsoft/phi-3-mini-4k-instruct"],
-      apiKey: "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",
-      endpoint: "https://api.nvidia.com/v1/chat/completions"
-    },
-    "Hugging Face": {
-      models: ["meta-llama/Meta-Llama-3-8B-Instruct", "mistralai/Mistral-7B-Instruct-v0.3", "facebook/mbart-large-50-many-to-one-mmt"],
-      apiKey: process.env.REACT_APP_HF_API_KEY,
-      endpoint: "https://api-inference.huggingface.co/models"
-    }
   };
 
   // Effect for authentication and fetching saved chats
@@ -86,7 +76,6 @@ const MultiLLMChat = () => {
       let assistantMessage;
 
       // API call logic based on the selected provider
-      if (selectedProvider === 'Groq') {
         response = await fetch(currentProvider.endpoint, {
           method: 'POST',
           headers: {
@@ -118,13 +107,7 @@ const MultiLLMChat = () => {
         } else {
           throw new Error('Invalid response format from Groq API');
         }
-      } else if (selectedProvider === 'NVIDIA') {
-        // NVIDIA API call logic
-        // ... (similar structure to Groq, with NVIDIA-specific parameters)
-      } else if (selectedProvider === 'Hugging Face') {
-        // Hugging Face API call logic
-        // ... (similar structure to Groq, with Hugging Face-specific parameters)
-      }
+      
 
       if (assistantMessage) {
         const newChatHistory = [
