@@ -1,74 +1,195 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { collection, query, getDocs, doc, getDoc, where } from 'firebase/firestore';
+import { db } from '../firebase-config';
+
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
-// Sample data generator
-const generateStudentData = (numStudents) => {
-  const subjects = ["Math", "Science", "English", "History"];
-  const students = [];
-  
-  for (let i = 0; i < numStudents; i++) {
-    const studentTests = [];
-    // Generate 20 tests per student
-    for (let j = 0; j < 20; j++) {
-      const subject = subjects[Math.floor(Math.random() * subjects.length)];
-      studentTests.push({
-        id: `test-${i}-${j}`,
-        subject,
-        score: Math.floor(Math.random() * 40) + 60,
-        date: new Date(2024, 0, j + 1).toISOString(),
-        timeTaken: `00:${Math.floor(Math.random() * 45) + 15}:00`
-      });
-    }
-    
-    students.push({
-      id: i + 1,
-      name: `Student ${i + 1}`,
-      grade: `Grade ${Math.floor(Math.random() * 3) + 9}`,
-      tests: studentTests,
-      attendance: Math.floor(Math.random() * 20) + 80,
-      lastActive: new Date(2024, 1, Math.floor(Math.random() * 28) + 1).toISOString()
-    });
-  }
-  return students;
-};
+const TeacherDashboard = ({currentUser}) => {
+  const [userRole, setUserRole] = useState(null);
+  const [quizAttempts, setQuizAttempts] = useState([]);
+  const [documents, setDocuments] = useState({});
+  const [students, setStudents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-const TeacherDashboard = () => {
   const [selectedStudent, setSelectedStudent] = useState('all');
   const [selectedSubject, setSelectedSubject] = useState('all');
   const [timeRange, setTimeRange] = useState('all');
-  
-  // Generate sample data
-  const students = useMemo(() => generateStudentData(10), []);
-  
+
+  // Check if the current user is logged in and has admin privileges
+  useEffect(() => {
+    const checkUserRole = async () => {
+      if (!currentUser?.uid) {
+        setError("Please log in to access the dashboard");
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const userRef = doc(db, "users", currentUser.uid);
+        const userSnap = await getDoc(userRef);
+        
+        if (!userSnap.exists()) {
+          setError("User profile not found");
+          setLoading(false);
+          return;
+        }
+
+        const userData = userSnap.data();
+        setUserRole(userData.role);
+
+        if (userData.role !== 'admin') {
+          setError("Access denied. Admin privileges required.");
+          setLoading(false);
+          return;
+        }
+      } catch (error) {
+        console.error("Error checking user role:", error);
+        setError("Failed to verify user permissions");
+        setLoading(false);
+      }
+    };
+
+    checkUserRole();
+  }, [currentUser]);
+
+  // Fetch all quiz attempts only if the user is verified as an admin
+  useEffect(() => {
+    const fetchQuizAttempts = async () => {
+      if (userRole !== 'admin') return;
+
+      try {
+        console.log(1)
+        const q = query(collection(db, "quizAttempts"));
+        const querySnapshot = await getDocs(q);
+        
+        if (querySnapshot.empty) {
+          setQuizAttempts([]);
+          setLoading(false);
+          return;
+        }
+
+        const attempts = querySnapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+          submittedAt: doc.data().submittedAt,
+        }));
+
+        setQuizAttempts(attempts);
+        setError(null);
+      } catch (error) {
+        console.error("Error fetching quiz attempts:", error);
+        setError(
+          error.code === 'permission-denied'
+            ? "You don't have permission to access this data."
+            : "Failed to load quiz attempts. Please try again later."
+        );
+      }
+    };
+
+    if (userRole === 'admin') {
+      fetchQuizAttempts();
+    }
+  }, [userRole]);
+
+  // Fetch document details for each quiz attempt
+  useEffect(() => {
+    const fetchDocuments = async () => {
+      console.log(2)
+      const docIds = Array.from(new Set(quizAttempts.map((attempt) => attempt.documentId)));
+      const docsData = {};
+
+      await Promise.all(
+        docIds.map(async (docId) => {
+          try {
+            const docRef = doc(db, "documents", docId);
+            const docSnap = await getDoc(docRef);
+            if (docSnap.exists()) {
+              docsData[docId] = docSnap.data();
+            }
+          } catch (error) {
+            console.error(`Error fetching document with id ${docId}:`, error);
+          }
+        })
+      );
+
+      setDocuments(docsData);
+    };
+
+    if (quizAttempts.length > 0) {
+      fetchDocuments();
+    }
+  }, [quizAttempts]);
+
+  // Fetch student details for each quiz attempt
+  useEffect(() => {
+    console.log(3)
+    const fetchStudents = async () => {
+      const studentIds = Array.from(new Set(quizAttempts.map(attempt => attempt.userId)));
+      const studentsData = [];
+
+      await Promise.all(
+        studentIds.map(async (studentId) => {
+          try {
+            const userRef = doc(db, "users", studentId);
+            const userSnap = await getDoc(userRef);
+            if (userSnap.exists()) {
+              const userData = userSnap.data();
+              const studentAttempts = quizAttempts.filter(attempt => attempt.userId === studentId);
+              
+              studentsData.push({
+                id: studentId,
+                name: userData.name || `Student ${studentId}`,
+                grade: userData.grade || 'N/A',
+                tests: studentAttempts,
+                attendance: userData.attendance || 0,
+                lastActive: studentAttempts.length > 0 
+                  ? Math.max(...studentAttempts.map(a => new Date(a.submittedAt).getTime()))
+                  : null
+              });
+            }
+          } catch (error) {
+            console.error(`Error fetching user with id ${studentId}:`, error);
+          }
+        })
+      );
+
+      setStudents(studentsData);
+      setLoading(false);
+    };
+
+    if (quizAttempts.length > 0) {
+      fetchStudents();
+    }
+  }, [quizAttempts]);
+
   // Filter and process data based on selections
   const filteredData = useMemo(() => {
-    let data = students.flatMap(student => 
-      student.tests.map(test => ({
-        ...test,
-        studentName: student.name,
-        studentId: student.id
-      }))
-    );
+    let data = quizAttempts.map(attempt => ({
+      ...attempt,
+      studentName: students.find(s => s.id === attempt.userId)?.name || 'Unknown Student',
+      subject: documents[attempt.documentId]?.subject || 'Unknown Subject'
+    }));
     
     if (selectedStudent !== 'all') {
-      data = data.filter(item => item.studentId === parseInt(selectedStudent));
+      data = data.filter(item => item.userId === selectedStudent);
     }
     
     if (selectedSubject !== 'all') {
-      data = data.filter(item => item.subject === selectedSubject);
+      data = data.filter(item => documents[item.documentId]?.subject === selectedSubject);
     }
     
     if (timeRange !== 'all') {
       const now = new Date();
       const threshold = new Date();
       threshold.setDate(now.getDate() - parseInt(timeRange));
-      data = data.filter(item => new Date(item.date) >= threshold);
+      data = data.filter(item => new Date(item.submittedAt) >= threshold);
     }
     
     return data;
-  }, [students, selectedStudent, selectedSubject, timeRange]);
+  }, [quizAttempts, students, documents, selectedStudent, selectedSubject, timeRange]);
 
   // Calculate analytics
   const analytics = useMemo(() => {
@@ -79,11 +200,12 @@ const TeacherDashboard = () => {
     
     // Subject-wise performance
     const subjectPerformance = filteredData.reduce((acc, test) => {
-      if (!acc[test.subject]) {
-        acc[test.subject] = { total: 0, count: 0 };
+      const subject = documents[test.documentId]?.subject || 'Unknown';
+      if (!acc[subject]) {
+        acc[subject] = { total: 0, count: 0 };
       }
-      acc[test.subject].total += test.score;
-      acc[test.subject].count += 1;
+      acc[subject].total += test.score;
+      acc[subject].count += 1;
       return acc;
     }, {});
     
@@ -94,7 +216,7 @@ const TeacherDashboard = () => {
     
     // Time-series data
     const timeSeriesData = filteredData.reduce((acc, test) => {
-      const date = new Date(test.date).toLocaleDateString();
+      const date = new Date(test.submittedAt).toLocaleDateString();
       if (!acc[date]) {
         acc[date] = { date, average: 0, count: 0 };
       }
@@ -114,11 +236,40 @@ const TeacherDashboard = () => {
       subjectData,
       performanceTrend
     };
-  }, [filteredData]);
+  }, [filteredData, documents]);
+
+  // If no user is logged in
+  if (!currentUser) {
+    return (
+      <div className="p-4">
+        <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded">
+          Please log in to access the admin dashboard.
+        </div>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-4">
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+          {error}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 space-y-4">
-      <h1 className="text-2xl font-bold mb-4">Teacher Analytics Dashboard</h1>
+      <h1 className="text-2xl font-bold mb-4">Admin Analytics Dashboard</h1>
       
       {/* Filters */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
@@ -141,10 +292,12 @@ const TeacherDashboard = () => {
           onChange={(e) => setSelectedSubject(e.target.value)}
         >
           <option value="all">All Subjects</option>
-          <option value="Math">Math</option>
-          <option value="Science">Science</option>
-          <option value="English">English</option>
-          <option value="History">History</option>
+          {Array.from(new Set(Object.values(documents).map(doc => doc.subject)))
+            .filter(Boolean)
+            .map(subject => (
+              <option key={subject} value={subject}>{subject}</option>
+            ))
+          }
         </select>
         
         <select
@@ -185,7 +338,8 @@ const TeacherDashboard = () => {
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-bold">
-              {students.filter(s => new Date(s.lastActive) >= new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)).length}
+              {students.filter(s => s.lastActive && 
+                new Date(s.lastActive) >= new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)).length}
             </p>
           </CardContent>
         </Card>
@@ -257,9 +411,9 @@ const TeacherDashboard = () => {
                       {filteredData.slice(0, 5).map((test) => (
                         <tr key={test.id} className="border-b">
                           <td className="p-2">{test.studentName}</td>
-                          <td className="p-2">{test.subject}</td>
+                          <td className="p-2">{documents[test.documentId]?.subject || 'Unknown'}</td>
                           <td className="p-2">{test.score}%</td>
-                          <td className="p-2">{new Date(test.date).toLocaleDateString()}</td>
+                          <td className="p-2">{new Date(test.submittedAt).toLocaleDateString()}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -284,14 +438,71 @@ const TeacherDashboard = () => {
                       <p className="font-bold">{student.grade}</p>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-500">Attendance</p>
-                      <p className="font-bold">{student.attendance}%</p>
+                      <p className="text-sm text-gray-500">Last Active</p>
+                      <p className="font-bold">
+                        {student.lastActive 
+                          ? new Date(student.lastActive).toLocaleDateString()
+                          : 'Never'}
+                      </p>
                     </div>
                     <div>
                       <p className="text-sm text-gray-500">Average Score</p>
                       <p className="font-bold">
-                        {Math.round(student.tests.reduce((acc, test) => acc + test.score, 0) / student.tests.length)}%
+                        {student.tests.length > 0
+                          ? Math.round(student.tests.reduce((acc, test) => acc + test.score, 0) / student.tests.length)
+                          : 'N/A'}%
                       </p>
+                    </div>
+                  </div>
+
+                  {/* Student's Performance Chart */}
+                  <div className="mt-4 h-[200px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={student.tests.sort((a, b) => new Date(a.submittedAt) - new Date(b.submittedAt))}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis 
+                          dataKey="submittedAt" 
+                          tickFormatter={(date) => new Date(date).toLocaleDateString()}
+                        />
+                        <YAxis domain={[0, 100]} />
+                        <Tooltip 
+                          labelFormatter={(label) => new Date(label).toLocaleDateString()}
+                        />
+                        <Line 
+                          type="monotone" 
+                          dataKey="score" 
+                          stroke="#8884d8" 
+                          name="Score" 
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  {/* Recent Activity */}
+                  <div className="mt-4">
+                    <h3 className="font-semibold mb-2">Recent Activity</h3>
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead>
+                          <tr className="border-b">
+                            <th className="p-2 text-left">Subject</th>
+                            <th className="p-2 text-left">Score</th>
+                            <th className="p-2 text-left">Date</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {student.tests
+                            .sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt))
+                            .slice(0, 3)
+                            .map((test) => (
+                              <tr key={test.id} className="border-b">
+                                <td className="p-2">{documents[test.documentId]?.subject || 'Unknown'}</td>
+                                <td className="p-2">{test.score}%</td>
+                                <td className="p-2">{new Date(test.submittedAt).toLocaleDateString()}</td>
+                              </tr>
+                            ))}
+                        </tbody>
+                      </table>
                     </div>
                   </div>
                 </CardContent>

@@ -174,15 +174,22 @@ const DocumentViewer = () => {
 
   const handleQuestionSubmit = async () => {
     if (!question.trim()) return;
-
+  
     try {
       setProcessingAi(true);
       setAnswer(null);
       setRelevantChunks([]);
-
+  
+      // First, ensure we have the current page's text
+      const currentPageText = await docProcessor.current.extractPageText(pdfDoc, currentPage);
+      
+      // Initialize the vector store with the current page's text
+      await docProcessor.current.initializeVectorStore(currentPageText);
+  
+      // Now we can process the question
       const { answer: answerText, relevantChunks: chunks } =
         await docProcessor.current.answerQuestion(question);
-
+  
       setAnswer(answerText);
       setRelevantChunks(chunks);
     } catch (error) {

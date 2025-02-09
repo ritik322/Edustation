@@ -9,6 +9,8 @@ import ChatInterface from "./components/ChatInterface";
 import DocumentViewer from "./components/DocumentViewer";
 import Register from "./components/Register";
 import AdminDashboard from "./components/AdminDashboard";
+import TeacherDashboard from "./components/TeacherDashboard";
+import Dashboard from "./components/Dashboard";
 
 const App = () => {
   const [user, loading] = useAuthState(auth);
@@ -50,7 +52,9 @@ const App = () => {
         <Route path="/register" element={user ? <Navigate to="/" /> : <Register />} />
 
         {/* Admin Routes */}
-        <Route path="/admin" element={user && role === "admin" ? <AdminDashboard /> : <Navigate to="/" />} />
+        <Route path="/TeacherDashboard" element={<TeacherDashboard currentUser={user}/> } />
+        <Route path="/Dashboard" element= {user?<Dashboard userId={user.uid}/>: <Navigate to="/login"/>}/>
+
 
         {/* Student Routes */}
         <Route path="/" element={user ? <Home /> : <Navigate to="/login" />} />
