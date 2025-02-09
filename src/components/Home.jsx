@@ -182,25 +182,26 @@ Respond only with the subject name mentioned in the subject list.`;
         };
         return newQueue;
       });
-  
+
       // Generate a unique file name
       const uniqueFileName = `${
         file.name.split(".")[0]
       }_${Date.now()}.${file.name.split(".").pop()}`;
-      
+
       // Use the file's classified subject instead of suggestedSubject
       const finalSubject = fileObj.subject; // Fixed: Use the file's own subject
       const storagePath = `documents/${auth.currentUser.uid}/${finalSubject}/${uniqueFileName}`;
       const storageRef = ref(storage, storagePath);
-      
+
       // Use uploadBytesResumable to track progress
       const uploadTask = uploadBytesResumable(storageRef, file);
-      
+
       return new Promise((resolve, reject) => {
         uploadTask.on(
           "state_changed",
           (snapshot) => {
-            const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+            const progress =
+              (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
             setUploadQueue((prevQueue) => {
               const newQueue = [...prevQueue];
               newQueue[index] = { ...newQueue[index], progress };
@@ -250,7 +251,7 @@ Respond only with the subject name mentioned in the subject list.`;
       throw error; // Propagate error to handle it in handleFileUpload
     }
   };
-  
+
   const handleFileUpload = async (event) => {
     const selectedFiles = Array.from(event.target.files).filter((file) =>
       file.type.includes("pdf")
@@ -259,43 +260,46 @@ Respond only with the subject name mentioned in the subject list.`;
       alert("Please select PDF files only");
       return;
     }
-  
+
     // Initialize empty upload queue
     setUploadQueue([]);
-  
+
     // Process and upload each file immediately
     for (let i = 0; i < selectedFiles.length; i++) {
       const file = selectedFiles[i];
       try {
         const text = await extractTextFromPDF(file);
         console.log(`Extracted text for ${file.name}:`, text.substring(0, 100));
-        
+
         const subject = await classifyPDFSubject(text.substring(0, 1000));
         console.log(`Suggested subject for ${file.name}:`, subject);
-        
+
         const fileObject = {
           file,
           status: "pending",
           progress: 0,
           subject: subject,
         };
-  
+
         // Add to upload queue
-        setUploadQueue(prevQueue => [...prevQueue, fileObject]);
-  
+        setUploadQueue((prevQueue) => [...prevQueue, fileObject]);
+
         // Upload immediately using the correct index
         await handleSingleFileUpload(fileObject, i, subject);
       } catch (error) {
         console.error(`Error processing ${file.name}:`, error);
-        setUploadQueue(prevQueue => [...prevQueue, {
-          file,
-          status: "failed",
-          progress: 0,
-          subject: "Default",
-        }]);
+        setUploadQueue((prevQueue) => [
+          ...prevQueue,
+          {
+            file,
+            status: "failed",
+            progress: 0,
+            subject: "Default",
+          },
+        ]);
       }
     }
-  
+
     // After all files are processed and uploaded
     await loadUserFiles();
     setUploadQueue([]);
@@ -333,9 +337,9 @@ Respond only with the subject name mentioned in the subject list.`;
       const query = encodeURIComponent(pdfSearchQuery);
       const url = `https://serpapi.com/search.json?engine=google&q=${query}&api_key=${SERPAPI_KEY}`;
       const response = await axios.get(url);
-     
+
       // SerpApi returns an organic_results array
-      const pdfResults = response.data.organic_results ;
+      const pdfResults = response.data.organic_results;
       const formattedResults = pdfResults.map((result) => ({
         title: result.title,
         snippet: result.snippet,
@@ -398,287 +402,334 @@ Respond only with the subject name mentioned in the subject list.`;
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 p-8">
-      <div className="max-w-4xl mx-auto">
-        {/* Manage Subjects Section */}
-        <div className="">
-          <div className="flex justify-between items-center mb-4">
-            <button
-              onClick={() => setShowSubjectDialog(true)}
-              className="flex items-center bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
-            >
-              📚 Manage Subjects
-            </button>
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-6xl mx-auto p-6 space-y-6">
+        {/* Top Navigation */}
+        <nav className="bg-white rounded-lg shadow-sm p-4">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center space-x-4">
+              <button
+                onClick={() => setShowSubjectDialog(true)}
+                className="flex items-center bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors"
+              >
+                📚 Manage Subjects
+              </button>
+            </div>
+            <div className="flex items-center space-x-3">
+              <button
+                onClick={() =>
+                  (window.location.href = "http://localhost:3000/")
+                }
+                className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors"
+              >
+                Study Room
+              </button>
+              <button
+                onClick={() => navigate("/chat")}
+                className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors"
+              >
+                Edu Assisstant
+              </button>
+              <button
+                onClick={() => signOut(auth)}
+                className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition-colors"
+              >
+                Sign Out
+              </button>
+            </div>
           </div>
-          {showSubjectDialog && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-              <div className="bg-white p-6 rounded-lg w-96">
-                <h3 className="text-lg font-semibold mb-4">Manage Subjects</h3>
-                <div className="max-h-40 overflow-y-auto border p-2 rounded mb-4">
-                  {subjects.length > 0 ? (
-                    <ul className="list-disc pl-4">
-                      {subjects.map((subject, index) => (
-                        <li key={index} className="text-gray-700">
-                          {subject.name}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="text-gray-500 text-sm">
-                      No subjects added yet.
-                    </p>
-                  )}
-                </div>
-                <input
-                  type="text"
-                  value={newSubject}
-                  onChange={(e) => setNewSubject(e.target.value)}
-                  className="w-full p-2 border rounded mb-4"
-                  placeholder="Enter new subject"
-                />
-                <div className="flex justify-end gap-2">
-                  <button
-                    onClick={() => setShowSubjectDialog(false)}
-                    className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded"
-                  >
-                    Close
-                  </button>
-                  <button
-                    onClick={addSubject}
-                    className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-                  >
-                    Add
-                  </button>
-                </div>
+        </nav>
+
+        {/* Subject Dialog */}
+        {showSubjectDialog && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white p-8 rounded-xl w-96 shadow-xl">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xl font-semibold">Manage Subjects</h3>
+                <button
+                  onClick={() => setShowSubjectDialog(false)}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="max-h-48 overflow-y-auto border rounded-lg p-4 mb-4 bg-gray-50">
+                {subjects.length > 0 ? (
+                  <ul className="space-y-2">
+                    {subjects.map((subject, index) => (
+                      <li
+                        key={index}
+                        className="flex items-center text-gray-700 p-2 hover:bg-gray-100 rounded"
+                      >
+                        📚 {subject.name}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-gray-500 text-center py-4">
+                    No subjects added yet.
+                  </p>
+                )}
+              </div>
+              <input
+                type="text"
+                value={newSubject}
+                onChange={(e) => setNewSubject(e.target.value)}
+                className="w-full p-3 border rounded-lg mb-4 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                placeholder="Enter new subject"
+              />
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => setShowSubjectDialog(false)}
+                  className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={addSubject}
+                  className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
+                >
+                  Add Subject
+                </button>
               </div>
             </div>
-          )}
-        </div>
-        {/* Header Section */}
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-2xl font-bold">My Documents</h1>
-          <div className="flex gap-4">
-          <button
-  onClick={() => (window.location.href = "http://localhost:3000/")}
-  className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
->
-  Chat Rooms
-</button>
-            <button
-              onClick={() => navigate("/chat")}
-              className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
-            >
-              AI Chat
-            </button>
-            <button
-              onClick={() => signOut(auth)}
-              className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
-            >
-              Sign Out
-            </button>
           </div>
-        </div>
-        <div className="bg-white rounded-lg shadow p-6 mb-8">
-          <h2 className="text-xl font-bold mb-4">Search for PDF Online</h2>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={pdfSearchQuery}
-              onChange={(e) => setPdfSearchQuery(e.target.value)}
-              placeholder="Enter PDF name"
-              className="w-full p-2 border rounded"
-            />
-            <button
-              onClick={handlePdfSearch}
-              className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
-            >
-              Search
-            </button>
-          </div>
-          {isSearching && <p className="mt-4 text-gray-600">Searching...</p>}
-          {pdfSearchResults.length > 0 && (
-            <div className="mt-4">
-              <ul>
+        )}
+
+        {/* Main Content */}
+        <main className="space-y-6">
+          {/* Search Section */}
+          <section className="bg-white rounded-lg shadow-sm p-6">
+            <h2 className="text-xl font-bold mb-4">Search for PDF Online</h2>
+            <div className="flex gap-3">
+              <input
+                type="text"
+                value={pdfSearchQuery}
+                onChange={(e) => setPdfSearchQuery(e.target.value)}
+                placeholder="Enter PDF name"
+                className="flex-1 p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+              <button
+                onClick={handlePdfSearch}
+                className="bg-blue-500 text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition-colors"
+              >
+                Search
+              </button>
+            </div>
+
+            {isSearching && (
+              <div className="mt-4 text-center">
+                <div className="animate-spin inline-block w-6 h-6 border-4 border-blue-500 border-t-transparent rounded-full"></div>
+                <p className="mt-2 text-gray-600">Searching...</p>
+              </div>
+            )}
+
+            {pdfSearchResults.length > 0 && (
+              <div className="mt-6 space-y-4">
                 {pdfSearchResults.map((result, index) => (
-                  <li key={index} className="p-2 border-b">
-                    <div className="flex justify-between items-center">
+                  <div
+                    key={index}
+                    className="border rounded-lg p-4 hover:bg-gray-50"
+                  >
+                    <div className="flex justify-between items-start">
                       <div>
-                        <h3 className="font-semibold">{result.title}</h3>
+                        <h3 className="font-semibold text-lg mb-1">
+                          {result.title}
+                        </h3>
                         {result.snippet && (
-                          <p className="text-sm text-gray-500">
-                            {result.snippet}
-                          </p>
+                          <p className="text-gray-600 mb-2">{result.snippet}</p>
                         )}
                         <a
                           href={result.downloadLink}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-blue-500 underline"
+                          className="text-blue-500 hover:text-blue-700 inline-flex items-center"
                         >
-                          Download PDF
+                          📥 Download PDF
                         </a>
                       </div>
                       <button
                         onClick={() => handleAddExternalPdf(result)}
-                        className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
+                        className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors"
                       >
                         Add to My Documents
                       </button>
                     </div>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
-        {/* Upload Section */}
-        <div className="bg-white rounded-lg shadow p-6 mb-8">
-          {uploadQueue.length > 0 ? (
-            <div className="space-y-4">
-              {uploadQueue.map((fileObj, index) => (
-                <div
-                  key={index}
-                  className="flex justify-between items-center p-2 border rounded"
-                >
-                  <div className="flex items-center gap-2">
-                    <PictureAsPdfIcon className="text-red-500" />
-                    <p className="text-sm">{fileObj.file.name}</p>
                   </div>
-                  {fileObj.status === "uploading" && (
-                    <div className="w-32 bg-gray-200 rounded-full h-2.5">
-                      <div
-                        className="bg-blue-600 h-2.5 rounded-full"
-                        style={{ width: `${fileObj.progress}%` }}
-                      ></div>
+                ))}
+              </div>
+            )}
+          </section>
+
+          {/* Upload Section */}
+          <section className="bg-white rounded-lg shadow-sm p-6">
+            {uploadQueue.length > 0 ? (
+              <div className="space-y-4">
+                {uploadQueue.map((fileObj, index) => (
+                  <div
+                    key={index}
+                    className="flex justify-between items-center p-4 border rounded-lg bg-gray-50"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-red-500">📄</span>
+                      <p className="font-medium">{fileObj.file.name}</p>
                     </div>
-                  )}
-                  {fileObj.status === "completed" && (
-                    <span className="text-green-600">✅ Uploaded</span>
-                  )}
-                  {fileObj.status === "failed" && (
-                    <button
-                      onClick={() =>
-                        handleSingleFileUpload(fileObj, index, suggestedSubject)
-                      }
-                      className="text-red-500 hover:underline"
-                    >
-                      Retry
-                    </button>
-                  )}
-                  {fileObj.status === "pending" && (
-                    <span className="text-gray-600">Pending</span>
-                  )}
-                </div>
-              ))}
-              <button
-                onClick={handleFileUpload}
-                className="mt-4 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
-              >
-                Start Upload
-              </button>
-            </div>
-          ) : (
-            <input
-              type="file"
-              accept=".pdf"
-              multiple
-              onChange={handleFileUpload}
-              className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-            />
-          )}
-        </div>
-        {/* Files & Folders Section */}
-        {uploadQueue.length === 0 && (
-          <div>
-            {currentFolder && (
-              <div className="mb-4">
+
+                    {fileObj.status === "uploading" && (
+                      <div className="w-48 bg-gray-200 rounded-full h-2">
+                        <div
+                          className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                          style={{ width: `${fileObj.progress}%` }}
+                        ></div>
+                      </div>
+                    )}
+
+                    {fileObj.status === "completed" && (
+                      <span className="text-green-600 flex items-center gap-1">
+                        ✅ Uploaded
+                      </span>
+                    )}
+
+                    {fileObj.status === "failed" && (
+                      <button
+                        onClick={() =>
+                          handleSingleFileUpload(
+                            fileObj,
+                            index,
+                            suggestedSubject
+                          )
+                        }
+                        className="text-red-500 hover:text-red-700 flex items-center gap-1"
+                      >
+                        🔄 Retry
+                      </button>
+                    )}
+
+                    {fileObj.status === "pending" && (
+                      <span className="text-gray-600">⏳ Pending</span>
+                    )}
+                  </div>
+                ))}
+                <button
+                  onClick={handleFileUpload}
+                  className="mt-6 bg-blue-500 text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition-colors w-full"
+                >
+                  Start Upload
+                </button>
+              </div>
+            ) : (
+              <div className="border-2 border-dashed rounded-lg p-8 text-center">
+                <input
+                  type="file"
+                  accept=".pdf"
+                  multiple
+                  onChange={handleFileUpload}
+                  className="w-full text-sm text-gray-500
+                    file:mr-4 file:py-2 file:px-4
+                    file:rounded-full file:border-0
+                    file:text-sm file:font-semibold
+                    file:bg-blue-50 file:text-blue-700
+                    hover:file:bg-blue-100
+                    cursor-pointer"
+                />
+              </div>
+            )}
+          </section>
+
+          {/* Files & Folders Section */}
+          {uploadQueue.length === 0 && (
+            <section>
+              {currentFolder && (
                 <button
                   onClick={() => {
                     setCurrentFolder(null);
                     loadUserFiles();
                   }}
-                  className="text-blue-600"
+                  className="flex items-center text-blue-600 hover:text-blue-800 mb-4"
                 >
-                  Back to Folders
+                  ← Back to Folders
                 </button>
-              </div>
-            )}
-            {getActiveFolders().length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
-                {currentFolder === null &&
-                  getActiveFolders().map((subject) => (
-                    <div
-                      key={subject}
-                      className="bg-white rounded-lg p-4 shadow cursor-pointer hover:shadow-lg transition-shadow"
-                      onClick={() => loadUserFiles(subject)}
-                    >
-                      <h2 className="text-xl font-semibold flex items-center">
-                        <span className="material-icons mr-2">folder</span>
-                        <span>{subject}</span>
-                      </h2>
-                    </div>
-                  ))}
-              </div>
-            ) : (
-              <div className="text-center text-gray-500 py-8">
-                <p>No documents uploaded yet.</p>
-                <p className="text-sm mt-2">Upload PDF files to get started.</p>
-              </div>
-            )}
-            {currentFolder && files[currentFolder] ? (
-              <div>
-                <table className="min-w-full border-collapse border border-gray-300">
-                  <thead>
-                    <tr className="bg-white">
-                      <th className="text-center py-2 px-4 border-b border-gray-300">
-                        Name
-                      </th>
-                      <th className="text-center py-2 px-4 border-b border-gray-300">
-                        Uploaded
-                      </th>
-                      <th className="text-center py-2 px-4 border-b border-gray-300">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {files &&
-                      files[currentFolder].map((file) => (
+              )}
+              <h1 className="text-3xl mb-6 font-bold text-gray-800">My Documents</h1>
+
+              {getActiveFolders().length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+                  {currentFolder === null &&
+                    getActiveFolders().map((subject) => (
+                      <div
+                        key={subject}
+                        onClick={() => loadUserFiles(subject)}
+                        className="bg-white rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+                      >
+                        <h2 className="text-xl font-semibold flex items-center gap-2">
+                          📁 {subject}
+                        </h2>
+                      </div>
+                    ))}
+                </div>
+              ) : (
+                <div className="text-center bg-white rounded-lg shadow-sm p-12">
+                  <p className="text-xl text-gray-600 mb-2">
+                    No documents uploaded yet
+                  </p>
+                  <p className="text-gray-500">
+                    Upload PDF files to get started
+                  </p>
+                </div>
+              )}
+
+              {currentFolder && files[currentFolder] && (
+                <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Name
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Uploaded
+                        </th>
+                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Actions
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {files[currentFolder].map((file) => (
                         <tr
                           key={file.id}
-                          className="hover:bg-gray-100 bg-white"
+                          className="hover:bg-gray-50 cursor-pointer"
                           onClick={() => navigate(`/document/${file.id}`)}
                         >
-                          <td className="py-2 px-4 border-gray-300 hover:cursor-pointer flex justify-center">
-                            <PictureAsPdfIcon
-                              style={{ fontSize: 20, marginRight: 8 }}
-                            />
-                            {file.name}
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center">
+                              <span className="text-red-500 mr-2">📄</span>
+                              <span className="font-medium">{file.name}</span>
+                            </div>
                           </td>
-                          <td className="py-2 px-4 border-b border-gray-300 text-center">
+                          <td className="px-6 py-4 whitespace-nowrap text-gray-500">
                             {new Date(file.uploadedAt).toLocaleDateString()}
                           </td>
-                          <td className="py-2 px-4 border-b border-gray-300 text-center">
+                          <td className="px-6 py-4 whitespace-nowrap text-right">
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
                                 handleDeleteFile(file);
                               }}
-                              className="bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600"
+                              className="text-red-500 hover:text-red-700"
                             >
-                              Delete
+                              🗑️ Delete
                             </button>
                           </td>
                         </tr>
                       ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              ""
-            )}
-          </div>
-        )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+          )}
+        </main>
       </div>
     </div>
   );

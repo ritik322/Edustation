@@ -8,7 +8,7 @@ import Home from "./components/Home";
 import ChatInterface from "./components/ChatInterface";
 import DocumentViewer from "./components/DocumentViewer";
 import Register from "./components/Register";
-import AdminDashboard from "./components/AdminDashboard";
+import TeacherDashboard from "./components/TeacherDashboard";
 
 const App = () => {
   const [user, loading] = useAuthState(auth);
@@ -50,7 +50,7 @@ const App = () => {
         <Route path="/register" element={user ? <Navigate to="/" /> : <Register />} />
 
         {/* Admin Routes */}
-        <Route path="/admin" element={user && role === "admin" ? <AdminDashboard /> : <Navigate to="/" />} />
+        <Route path="/admin" element={user && role === "admin" ? <TeacherDashboard /> : <Navigate to="/" />} />
 
         {/* Student Routes */}
         <Route path="/" element={user ? <Home /> : <Navigate to="/login" />} />
