@@ -10,7 +10,9 @@ import DocumentViewer from "./components/DocumentViewer";
 import Register from "./components/Register";
 import AdminDashboard from "./components/AdminDashboard";
 import TeacherDashboard from "./components/TeacherDashboard";
+import TeacherDashboard2 from "./components/TeacherDashboard2";
 import Dashboard from "./components/Dashboard";
+import Dashboard2 from "./components/Dashboard2";
 
 const App = () => {
   const [user, loading] = useAuthState(auth);
@@ -52,8 +54,10 @@ const App = () => {
         <Route path="/register" element={user ? <Navigate to="/" /> : <Register />} />
 
         {/* Admin Routes */}
-        <Route path="/TeacherDashboard" element={<TeacherDashboard currentUser={user}/> } />
-        <Route path="/Dashboard" element= {user?<Dashboard userId={user.uid}/>: <Navigate to="/login"/>}/>
+        <Route path="/TeacherDashboard2" element={<TeacherDashboard currentUser={user}/> } />
+        <Route path="/TeacherDashboard" element={<TeacherDashboard2/> } />
+        <Route path="/Dashboard2" element= {user?<Dashboard userId={user.uid}/>: <Navigate to="/login"/>}/>
+        <Route path="/Dashboard" element= {user?<Dashboard2/>: <Navigate to="/login"/>}/>
 
 
         {/* Student Routes */}
