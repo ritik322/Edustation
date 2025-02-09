@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { Worker, Viewer } from "@react-pdf-viewer/core";
 import { defaultLayoutPlugin } from "@react-pdf-viewer/default-layout";
 import { pageNavigationPlugin } from "@react-pdf-viewer/page-navigation";
-import { collection, doc, getDoc } from "firebase/firestore";
+import { collection, doc, getDoc, addDoc } from "firebase/firestore"; // added addDoc here
 import { getStorage, ref, getDownloadURL } from "firebase/storage";
 import { db, auth } from "../firebase-config";
 import * as pdfjsLib from "pdfjs-dist";
@@ -105,8 +105,7 @@ const DocumentViewer = () => {
       const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
       setPdfDoc(pdf);
 
-      // Don't automatically process the first page here
-      // The Viewer component will trigger handlePageChange
+      // Viewer will handle page change
       setCurrentPage(1);
     } catch (err) {
       console.error("Error loading document:", err);
@@ -136,7 +135,6 @@ const DocumentViewer = () => {
         pdfDoc,
         currentPage
       );
-
       setPageText(result.text);
       if (result.summary) {
         setSummary(result.summary);
@@ -157,10 +155,14 @@ const DocumentViewer = () => {
   const handleGenerateMCQs = async () => {
     try {
       setGeneratingMCQs(true);
-      const result = await docProcessor.current.generateMCQs(
-        pageText,
-        mcqSettings
-      );
+      if (!pdfDoc) {
+        setError("PDF document is not loaded yet");
+        return;
+      }
+      // Extract text from the current page only
+      const currentPageText = await docProcessor.current.extractPageText(pdfDoc, currentPage);
+      // Generate MCQs based on the extracted text and provided settings
+      const result = await docProcessor.current.generateMCQs(currentPageText, mcqSettings);
       setMCQs(result);
     } catch (error) {
       setError("Error generating MCQs: " + error.message);
@@ -168,8 +170,8 @@ const DocumentViewer = () => {
       setGeneratingMCQs(false);
     }
   };
-
   
+
   const handleQuestionSubmit = async () => {
     if (!question.trim()) return;
 
@@ -190,6 +192,43 @@ const DocumentViewer = () => {
       setProcessingAi(false);
     }
   };
+
+  // New function to store quiz attempt data in Firestore.
+// Helper function to calculate the score
+const calculateScore = () => {
+  let score = 0;
+  // Loop through each question's result in answerResults.
+  for (const question in answerResults) {
+    if (answerResults.hasOwnProperty(question)) {
+      // Increment score if the answer is correct.
+      if (answerResults[question].isCorrect) {
+        score++;
+      }
+    }
+  }
+  return score;
+};
+
+const handleQuizSubmit = async () => {
+  try {
+    const score = calculateScore();
+    // Construct the quiz attempt data.
+    const quizData = {
+      userId: auth.currentUser.uid,
+      documentId: id,
+      userAnswers,       // e.g. { "1": "A", "2": "B", ... }
+      answerResults,     // e.g. { "1": { isCorrect: true, correctAnswer: "A", explanation: "..." }, ... }
+      score,             // The calculated score
+      submittedAt: new Date().toISOString(),
+    };
+    await addDoc(collection(db, "quizAttempts"), quizData);
+    alert(`Quiz data submitted successfully! Your score is: ${score}`);
+  } catch (error) {
+    console.error("Error storing quiz data:", error);
+    alert("Failed to submit quiz data");
+  }
+};
+
 
   if (loading) {
     return (
@@ -247,8 +286,6 @@ const DocumentViewer = () => {
         className="w-[35%] p-4 bg-white shadow-lg overflow-y-auto"
         style={{ height: "calc(100vh - 32px)" }}
       >
-      
-
         {/* Question & Answer Section */}
         <div className="mb-6">
           <h2 className="text-xl font-bold mb-4">Ask a Question</h2>
@@ -335,7 +372,7 @@ const DocumentViewer = () => {
             </div>
             <button
               onClick={handleGenerateMCQs}
-              disabled={generatingMCQs || !pageText}
+              // disabled={generatingMCQs || !pageText}
               className={`w-full px-4 py-2 rounded text-white ${
                 generatingMCQs || !pageText
                   ? "bg-gray-400"
@@ -364,8 +401,7 @@ const DocumentViewer = () => {
                             ? answerResults[questionNo]?.isCorrect
                               ? "bg-green-100 border-green-200"
                               : "bg-red-100 border-red-200"
-                            : letter ===
-                                answerResults[questionNo]?.correctAnswer &&
+                            : letter === answerResults[questionNo]?.correctAnswer &&
                               userAnswers[questionNo]
                             ? "bg-green-100 border-green-200"
                             : "bg-white hover:bg-gray-50"
@@ -399,24 +435,22 @@ const DocumentViewer = () => {
               ))}
             </div>
           )}
+
+          {/* Submit Quiz Button */}
+          <div className="mt-4">
+            <button
+              onClick={handleQuizSubmit}
+              className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+            >
+              Submit Quiz
+            </button>
+          </div>
         </div>
 
         {/* Page Summary Section */}
         <div className="mt-6">
           <h2 className="text-xl font-bold mb-4">Page {currentPage} Summary</h2>
-          {
-            /* {extractingText ? (
-            <div className="flex items-center justify-center p-4">
-              <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500 mr-2"></div>
-              <span>Generating summary...</span>
-            </div>
-          ) : (
-            <div className="p-4 bg-gray-50 rounded-lg">
-              <p className="text-gray-700">{summary || 'No summary available'}</p>
-            </div>
-          )} */
-            <Button onClick={handleGenerateSummary}>Generate Summary</Button>
-          }
+          <Button onClick={handleGenerateSummary}>Generate Summary</Button>
           {extractingText ? (
             <div className="flex items-center justify-center p-4">
               <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500 mr-2"></div>

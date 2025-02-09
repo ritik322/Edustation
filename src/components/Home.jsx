@@ -21,7 +21,6 @@ import axios from "axios";
 import * as pdfjs from "pdfjs-dist";
 import pdfjsWorker from "pdfjs-dist/build/pdf.worker.entry";
 import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
-import Tesseract from "tesseract.js";
 
 pdfjs.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
@@ -31,11 +30,8 @@ const Home = () => {
   const [files, setFiles] = useState({});
   // uploadQueue holds objects: { file, status, progress }
   const [uploadQueue, setUploadQueue] = useState([]);
-  const [currentUploadIndex, setCurrentUploadIndex] = useState(0);
-  const [uploadProgress, setUploadProgress] = useState(0);
   const navigate = useNavigate();
   const [currentFolder, setCurrentFolder] = useState(null);
-
   const [subjects, setSubjects] = useState([]);
   const [newSubject, setNewSubject] = useState("");
   const [showSubjectDialog, setShowSubjectDialog] = useState(false);
@@ -266,8 +262,6 @@ Respond only with the subject name mentioned in the subject list.`;
   
     // Initialize empty upload queue
     setUploadQueue([]);
-    setCurrentUploadIndex(0);
-    setUploadProgress(0);
   
     // Process and upload each file immediately
     for (let i = 0; i < selectedFiles.length; i++) {
@@ -291,7 +285,6 @@ Respond only with the subject name mentioned in the subject list.`;
   
         // Upload immediately using the correct index
         await handleSingleFileUpload(fileObject, i, subject);
-        setCurrentUploadIndex(i + 1);
       } catch (error) {
         console.error(`Error processing ${file.name}:`, error);
         setUploadQueue(prevQueue => [...prevQueue, {
@@ -306,8 +299,6 @@ Respond only with the subject name mentioned in the subject list.`;
     // After all files are processed and uploaded
     await loadUserFiles();
     setUploadQueue([]);
-    setCurrentUploadIndex(0);
-    setUploadProgress(0);
   };
 
   // Delete a file using the stored storagePath (or compute it if missing).
@@ -467,6 +458,12 @@ Respond only with the subject name mentioned in the subject list.`;
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-2xl font-bold">My Documents</h1>
           <div className="flex gap-4">
+          <button
+  onClick={() => (window.location.href = "http://localhost:3000/")}
+  className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
+>
+  Chat Rooms
+</button>
             <button
               onClick={() => navigate("/chat")}
               className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
