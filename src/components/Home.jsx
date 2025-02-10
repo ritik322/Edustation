@@ -610,12 +610,12 @@ Respond only with the subject name mentioned in the subject list.`;
                     )}
                   </div>
                 ))}
-                <button
+                {/* <button
                   onClick={handleFileUpload}
                   className="mt-6 bg-blue-500 text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition-colors w-full"
                 >
                   Start Upload
-                </button>
+                </button> */}
               </div>
             ) : (
               <div className="border-2 border-dashed rounded-lg p-8 text-center">
