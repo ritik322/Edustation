@@ -25,7 +25,6 @@ const Register = () => {
       });
 
       console.log("Student registered successfully!");
-      navigate("/student-dashboard"); // Redirect to student dashboard
     } catch (error) {
       setError(error.message);
     }
