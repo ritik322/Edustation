@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 /* src/index.css */
 
 /* Tailwind directives MUST come first */
@@ -61,3 +62,8 @@
 }
 
 /* Add other global styles below */
+=======
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+>>>>>>> b6d099355f5caa5e739a921b39eef8cfad6959a4
