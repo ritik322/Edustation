@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PayPal Payment Test</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- 
+      1. PayPal JavaScript SDK 
+      - Replace 'YOUR_CLIENT_ID' with your actual PayPal Client ID.
+      - Get this from your PayPal Developer Dashboard.
+    -->
+    <script src="https://www.paypal.com/sdk/js?client-id=Ad_X6S3Cxu0Ot-Lgpu8kbbri9UO58knSpiOAxIFd3bq9JjGKoN6Feqni7Fs0FHTh4Pczk2boE3WUSJJq&currency=USD"></script>
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Style adjustments for PayPal buttons */
+        #paypal-button-container {
+            margin-top: 1.5rem;
+        }
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border-left-color: #0070ba; /* PayPal blue */
+            animation: spin 1s ease infinite;
+            margin: 20px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen">
+
+    <div class="w-full max-w-md bg-white rounded-xl shadow-lg p-8 space-y-6">
+        
+        <!-- Product Display -->
+        <div id="product-display" class="text-center">
+            <h1 class="text-2xl font-bold text-gray-800">Test Product</h1>
+            <p class="text-gray-500">A cool gadget for testing payments</p>
+            <div class="my-4">
+                <img src="https://placehold.co/400x200/e2e8f0/4a5568?text=Test+Gadget" 
+                     alt="Test Product" class="rounded-lg mx-auto">
+            </div>
+            <p class="text-3xl font-bold text-gray-900">$10.00</p>
+
+            <!-- 2. PayPal Button Container -->
+            <div id="paypal-button-container"></div>
+
+             <!-- Loading Spinner -->
+            <div id="spinner" class="spinner hidden"></div>
+        </div>
+
+        <!-- Success Message -->
+        <div id="payment-success" class="hidden text-center p-4 bg-green-100 text-green-800 rounded-lg">
+            <h2 class="text-xl font-bold">Payment Successful!</h2>
+            <p>Thank you for your purchase.</p>
+            <p class="text-xs mt-2" id="transaction-id"></p>
+        </div>
+
+    </div>
+
+    <script>
+        // ===================================================================================
+        // CLIENT-SIDE JAVASCRIPT FOR PAYPAL INTEGRATION
+        // ===================================================================================
+
+        // 3. Render the PayPal Buttons
+        paypal.Buttons({
+            // ===================================================================================
+            // A. SERVER-SIDE INTERACTION: Create Order
+            // ===================================================================================
+            // This function is called when the user clicks the PayPal button.
+            // It calls your server to set up the details of the transaction.
+            createOrder: async function(data, actions) {
+                console.log('Initiating order creation...');
+                try {
+                    // This 'fetch' call goes to your own server endpoint.
+                    // Your server will then make a call to PayPal's API using your SECRET key.
+                    const response = await fetch('/api/orders', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        // Example: send item details to your server
+                        body: JSON.stringify({
+                            product: {
+                                description: 'Test Product',
+                                cost: '10.00'
+                            }
+                        }),
+                    });
+                    
+                    const orderData = await response.json();
+
+                    if (orderData.id) {
+                        console.log('Order created on server, ID:', orderData.id);
+                        return orderData.id; // Return the order ID to the PayPal SDK
+                    } else {
+                        // Handle potential errors from the server
+                        const errorDetail = orderData?.details?.[0];
+                        const errorMessage = errorDetail ? `${errorDetail.issue} ${errorDetail.description} (${orderData.debug_id})` : JSON.stringify(orderData);
+                        throw new Error(errorMessage);
+                    }
+                } catch (error) {
+                    console.error('Error creating PayPal order:', error);
+                    // Use a more user-friendly error message
+                    alert(`Could not initiate PayPal Checkout. Please try again or contact support.\n\nError: ${error.message}`);
+                }
+            },
+
+            // ===================================================================================
+            // B. SERVER-SIDE INTERACTION: Capture Order
+            // ===================================================================================
+            // This function is called after the user approves the payment in the PayPal popup.
+            onApprove: async function(data, actions) {
+                console.log('Order approved. Capturing payment for Order ID:', data.orderID);
+                document.getElementById('spinner').classList.remove('hidden');
+                document.getElementById('paypal-button-container').classList.add('hidden');
+
+                try {
+                    // This 'fetch' call goes to your server to finalize (capture) the payment.
+                    // The 'data.orderID' is passed to your server to identify the transaction.
+                    const response = await fetch(`/api/orders/${data.orderID}/capture`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                    });
+
+                    const captureData = await response.json();
+
+                    // 4. Show a success message to the buyer
+                    console.log('Payment captured successfully:', captureData);
+                    const productDisplay = document.getElementById('product-display');
+                    const successMessage = document.getElementById('payment-success');
+                    const transactionIdElement = document.getElementById('transaction-id');
+
+                    productDisplay.classList.add('hidden');
+                    successMessage.classList.remove('hidden');
+
+                    // Extract the transaction ID from the detailed response
+                    const transaction = captureData.purchase_units[0].payments.captures[0];
+                    transactionIdElement.textContent = `Transaction ID: ${transaction.id}`;
+
+                } catch (error) {
+                    console.error('Error capturing payment:', error);
+                    alert(`An error occurred while finalizing your payment. Please contact support.\n\nError: ${error.message}`);
+                    document.getElementById('spinner').classList.add('hidden');
+                    document.getElementById('paypal-button-container').classList.remove('hidden');
+                }
+            },
+
+            onError: function(err) {
+                // This function is called if an error occurs during the transaction on PayPal's side.
+                console.error('PayPal button error:', err);
+                alert('An error occurred with the PayPal button. Please refresh the page and try again.');
+            },
+
+            onCancel: function (data) {
+                // This function is called when the user closes the PayPal popup without completing the payment.
+                console.log('Payment cancelled by user. Order ID:', data.orderID);
+            }
+
+        }).render('#paypal-button-container'); // Renders the buttons into the specified div
+    </script>
+
+</body>
+</html>

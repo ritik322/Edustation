@@ -1,0 +1,79 @@
+{
+  "name": "study-helper",
+  "version": "0.1.0",
+  "private": true,
+  "dependencies": {
+    "@chatscope/chat-ui-kit-react": "^2.0.3",
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.0",
+    "@google/generative-ai": "^0.21.0",
+    "@heroicons/react": "^2.2.0",
+    "@mui/icons-material": "^6.4.10",
+    "@mui/material": "^6.4.10",
+    "@radix-ui/react-tabs": "^1.1.3",
+    "@react-pdf-viewer/core": "^3.12.0",
+    "@react-pdf-viewer/default-layout": "^3.12.0",
+    "@react-pdf/renderer": "^4.0.0",
+    "@shadcn/ui": "^0.0.4",
+    "@tailwindcss/forms": "^0.5.9",
+    "@testing-library/jest-dom": "^5.17.0",
+    "@testing-library/react": "^13.4.0",
+    "@testing-library/user-event": "^13.5.0",
+    "axios": "^1.8.4",
+    "clsx": "^2.1.1",
+    "cors-anywhere": "^0.4.4",
+    "firebase": "^10.14.1",
+    "framer-motion": "^12.9.4",
+    "groq": "^3.62.3",
+    "groq-sdk": "^0.7.0",
+    "lucide-react": "^0.453.0",
+    "pdfjs-dist": "^3.11.174",
+    "re-resizable": "^6.11.2",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-draggable": "^4.4.6",
+    "react-firebase-hooks": "^5.1.1",
+    "react-hot-toast": "^2.5.2",
+    "react-markdown": "^10.1.0",
+    "react-pdf": "^9.1.1",
+    "react-resizable-panels": "^3.0.0",
+    "react-router-dom": "^6.27.0",
+    "react-scripts": "^5.0.1",
+    "react-type-animation": "^3.2.0",
+    "recharts": "^2.15.1",
+    "tailwind-merge": "^2.6.0",
+    "tailwindcss-animate": "^1.0.7",
+    "tesseract.js": "^5.1.1",
+    "web-vitals": "^2.1.4"
+  },
+  "scripts": {
+    "start": "react-scripts  --openssl-legacy-provider start",
+    "build": "react-scripts build",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject"
+  },
+  "eslintConfig": {
+    "extends": [
+      "react-app",
+      "react-app/jest"
+    ]
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "devDependencies": {
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.47",
+    "shadcn-ui": "^0.9.2",
+    "tailwindcss": "^3.4.14"
+  }
+}
