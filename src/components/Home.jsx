@@ -146,7 +146,7 @@ const Home = () => {
     const fetchWelcomeQuote = useCallback(async () => {
         if (!GROQ_API_KEY) {
             console.warn("Groq API key not found. Skipping quote generation.");
-            setWelcomeQuote({ text: "Keep learning, keep growing!", author: "Navdeep" });
+            setWelcomeQuote({ text: "Keep learning, keep growing!" });
             setIsQuoteLoading(false);
             return;
         }
